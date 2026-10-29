@@ -36,18 +36,20 @@ checksum:
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
+# Keyless: cosign signs the checksum file with the release workflow's GitHub
+# OIDC identity, so no signing key is stored anywhere. Verify with
+#   cosign verify-blob --bundle <SHA256SUMS>.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/sengine-cloud/terraform-provider-warpgate/' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com <SHA256SUMS>
 signs:
-  - artifacts: checksum
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
     args:
-      # if you are using this in a GitHub action or some other automated pipeline, you 
-      # need to pass the batch flag to indicate its not interactive.
-      - "--batch"
-      - "--local-user"
-      - "{{ .Env.GPG_FINGERPRINT }}" # set this environment variable for your signing key
-      - "--output"
-      - "${signature}"
-      - "--detach-sign"
-      - "${artifact}"
+      - sign-blob
+      - --bundle=${signature}
+      - ${artifact}
+      - --yes
 release:
   extra_files:
     - glob: 'terraform-registry-manifest.json'
